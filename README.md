@@ -1,4 +1,4 @@
-# 🧠 SentiScope – AI Review Intelligence Platform
+#  SentiScope – AI Review Intelligence Platform
 
 An AI-powered analytics platform that transforms raw customer reviews into actionable business insights using Natural Language Processing and Machine Learning.
 
