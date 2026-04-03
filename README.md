@@ -19,6 +19,15 @@ It enables businesses to move from:
 
 ---
 
+## 📦 Dataset
+
+The analysis is based on the **Amazon Product Reviews Dataset** from Kaggle:  
+https://www.kaggle.com/datasets/yasserh/amazon-product-reviews-dataset/data
+
+This dataset contains thousands of real Amazon customer reviews, which enables SentiScope to analyze sentiment and uncover hidden dissatisfaction patterns.
+
+---
+
 ## 🎯 Key Features
 
 * ✅ Sentiment Analysis using VADER (rule-based NLP)
@@ -70,10 +79,10 @@ SentiScope detects **hidden dissatisfaction patterns** by comparing textual sent
 SentiScope/
 ├── app/
 │   └── app.py
-|   └── final_reviews.csv
 ├── data/
 │   ├── reviews.csv
 │   ├── cleaned_reviews.csv
+│   └── final_reviews.csv
 ├── notebooks/
 │   └── analysis.ipynb
 ├── src/
