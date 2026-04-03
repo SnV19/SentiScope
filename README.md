@@ -68,10 +68,10 @@ SentiScope detects **hidden dissatisfaction patterns** by comparing textual sent
 SentiScope/
 ├── app/
 │   └── app.py
+|   └── final_reviews.csv
 ├── data/
 │   ├── reviews.csv
 │   ├── cleaned_reviews.csv
-│   └── final_reviews.csv
 ├── notebooks/
 │   └── analysis.ipynb
 ├── src/
