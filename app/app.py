@@ -14,7 +14,7 @@ st.set_page_config(page_title="AI Review Intelligence Platform", layout="wide")
 # ---------------- LOAD DATA ----------------
 @st.cache_data
 def load_data():
-    return pd.read_csv("../data/final_reviews.csv")
+    return pd.read_csv("final_reviews.csv")
 
 df = load_data()
 
