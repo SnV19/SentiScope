@@ -3,6 +3,7 @@ import pandas as pd
 from collections import Counter
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import ast
+import os
 
 # ML imports
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -14,10 +15,11 @@ st.set_page_config(page_title="AI Review Intelligence Platform", layout="wide")
 # ---------------- LOAD DATA ----------------
 @st.cache_data
 def load_data():
-    return pd.read_csv("final_reviews.csv")
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(BASE_DIR, "final_reviews.csv")
+    return pd.read_csv(file_path)
 
 df = load_data()
-
 # ---------------- VADER ----------------
 analyzer = SentimentIntensityAnalyzer()
 
