@@ -20,6 +20,7 @@ def load_data():
     return pd.read_csv(file_path)
 
 df = load_data()
+
 # ---------------- VADER ----------------
 analyzer = SentimentIntensityAnalyzer()
 
@@ -82,7 +83,7 @@ if search:
         filtered_df['clean_review'].str.contains(search, case=False, na=False)
     ]
 
-# Sort ------------------------------------------
+# Sort
 sort_option = st.sidebar.selectbox("Sort by", ["None", "Rating", "Sentiment"])
 
 if sort_option == "Rating":
@@ -103,6 +104,42 @@ if len(filtered_df) == 0:
 # ---------------- ML PREDICTION ----------------
 X_filtered = vectorizer.transform(filtered_df["clean_review"])
 filtered_df["ml_sentiment"] = model.predict(X_filtered)
+
+# ---------------- ADVANCED MISMATCH DETECTION ----------------
+def detect_mismatch(row):
+    rating = row['rating']
+    sentiment = row['sentiment']
+
+    if rating <= 2 and sentiment == "Positive":
+        return "Highly Suspicious"
+    elif rating >= 4 and sentiment == "Negative":
+        return "Highly Suspicious"
+    elif rating == 3 and sentiment in ["Positive", "Negative"]:
+        return "Moderate"
+    elif rating >= 4 and sentiment == "Neutral":
+        return "Slight"
+    elif rating <= 2 and sentiment == "Neutral":
+        return "Slight"
+    else:
+        return "Normal"
+
+filtered_df['mismatch_level'] = filtered_df.apply(detect_mismatch, axis=1)
+
+# ---------------- SUSPICION SCORE ----------------
+def suspicion_score(row):
+    score = 0
+
+    if row['mismatch_level'] == "Highly Suspicious":
+        score += 2
+    elif row['mismatch_level'] == "Moderate":
+        score += 1
+
+    if len(str(row['clean_review']).split()) < 5:
+        score += 1
+
+    return score
+
+filtered_df['suspicion_score'] = filtered_df.apply(suspicion_score, axis=1)
 
 # ---------------- KPIs ----------------
 st.subheader("📊 Key Metrics")
@@ -150,49 +187,140 @@ comparison = pd.crosstab(filtered_df['sentiment'], filtered_df['ml_sentiment'])
 st.write(comparison)
 
 # ---------------- AI INSIGHTS ----------------
-st.subheader("🧠 AI Insights")
+# ---------------- SMART AI INSIGHTS ----------------
+st.subheader("🧠 AI Insights (Advanced)")
 
 avg_rating = filtered_df['rating'].mean()
+negative_ratio = (filtered_df['sentiment'] == "Negative").mean()
+positive_ratio = (filtered_df['sentiment'] == "Positive").mean()
+high_suspicion_ratio = (filtered_df['suspicion_score'] >= 2).mean()
 
-if avg_rating >= 4:
-    st.success("Overall customer satisfaction is high.")
+# ---------------- OVERALL HEALTH ----------------
+if avg_rating >= 4 and negative_ratio < 0.2:
+    st.success("🟢 Strong product performance with high customer satisfaction and low complaints.")
 elif avg_rating >= 3:
-    st.info("Customer feedback is mixed.")
+    st.info("🟡 Product shows mixed feedback — improvements needed in certain areas.")
 else:
-    st.warning("Customers are generally unhappy with this brand.")
+    st.error("🔴 Product performance is poor with significant dissatisfaction among customers.")
 
-# Top issue
+# ---------------- SENTIMENT vs RATING GAP ----------------
+if avg_rating >= 4 and negative_ratio > 0.3:
+    st.warning("⚠️ High ratings but many negative reviews — possible rating inflation or misleading feedback.")
+elif avg_rating <= 2.5 and positive_ratio > 0.3:
+    st.warning("⚠️ Low ratings but many positive reviews — inconsistent customer perception detected.")
+
+# ---------------- TOP ISSUE ----------------
 if aspect_counts:
-    top_issue = aspect_counts.most_common(1)[0][0]
-    st.write(f"🚨 Most common issue: **{top_issue}**")
+    top_issue, count = aspect_counts.most_common(1)[0]
+    issue_percent = round((count / len(filtered_df)) * 100, 2)
 
-# Negative ratio
-negative_ratio = (filtered_df['sentiment']=="Negative").mean()
+    st.write(f"🚨 Major issue impacting customers: **{top_issue}** ({issue_percent}% of reviews)")
 
-if negative_ratio > 0.5:
-    st.warning("More than 50% reviews are negative.")
-elif negative_ratio > 0.3:
-    st.info("Significant negative feedback detected.")
+    # Actionable suggestions
+    if top_issue.lower() == "battery":
+        st.write("🔋 Improving battery performance can significantly boost customer satisfaction.")
+    elif top_issue.lower() == "price":
+        st.write("💸 Customers perceive pricing as high — consider discounts or value justification.")
+    elif top_issue.lower() == "delivery":
+        st.write("🚚 Delivery delays/issues are hurting user experience — optimize logistics.")
+    elif top_issue.lower() == "quality":
+        st.write("⚙️ Product quality concerns detected — focus on durability and consistency.")
 
-# ---------------- MISMATCH ----------------
-mismatch = filtered_df[
-    ((filtered_df['rating'] <= 2) & (filtered_df['sentiment'] == "Positive")) |
-    ((filtered_df['rating'] >= 4) & (filtered_df['sentiment'] == "Negative"))
-]
+# ---------------- FAKE REVIEW SIGNAL ----------------
+if high_suspicion_ratio > 0.3:
+    st.error("🚨 High probability of fake or manipulated reviews detected. Data reliability is questionable.")
+elif high_suspicion_ratio > 0.15:
+    st.warning("⚠️ Some suspicious review patterns detected — interpret insights carefully.")
+else:
+    st.success("✅ Review data appears reliable with minimal suspicious activity.")
 
-mismatch_ratio = len(mismatch) / len(filtered_df)
+# ---------------- TREND INSIGHT ----------------
+sentiment_trend = filtered_df['sentiment'].value_counts()
 
-if mismatch_ratio > 0.2:
-    st.warning("High mismatch between rating and sentiment — possible unreliable reviews.")
+if "Negative" in sentiment_trend and "Positive" in sentiment_trend:
+    if sentiment_trend["Negative"] > sentiment_trend["Positive"]:
+        st.warning("📉 Negative sentiment dominates — urgent improvements required.")
+    else:
+        st.success("📈 Positive sentiment dominates — product is well received overall.")
 
-# Suggestions
-if aspect_counts:
-    if "battery" in aspect_counts:
-        st.write("🔋 Improve battery performance to boost ratings.")
-    if "price" in aspect_counts:
-        st.write("💸 Pricing may be a concern for customers.")
-    if "delivery" in aspect_counts:
-        st.write("🚚 Delivery experience needs improvement.")
+# ---------------- PRODUCT LEVEL ALERT ----------------
+problem_products = (
+    filtered_df[filtered_df['sentiment']=="Negative"]
+    ['product']
+    .value_counts()
+)
+
+if len(problem_products) > 0:
+    worst_product = problem_products.idxmax()
+    st.write(f"🚨 Most problematic product: **{worst_product}** (highest negative feedback)")
+
+# ---------------- BUSINESS SUMMARY ----------------
+st.markdown("### 📌 Executive Summary")
+
+# Top product (best rated)
+top_product = (
+    filtered_df.groupby('product')['rating']
+    .mean()
+    .idxmax()
+)
+
+# Worst product (most negative reviews)
+problem_products = (
+    filtered_df[filtered_df['sentiment']=="Negative"]
+    ['product']
+    .value_counts()
+)
+
+worst_product = problem_products.idxmax() if len(problem_products) > 0 else None
+
+# Summary logic
+if avg_rating >= 4 and high_suspicion_ratio < 0.1:
+    st.write(f"**{top_product}** is performing strongly with genuine positive customer feedback.")
+elif avg_rating >= 3:
+    st.write(f"Products like **{worst_product}** need targeted improvements to reduce negative experiences.")
+else:
+    st.write(f"Products such as **{worst_product}** are underperforming and need immediate attention.")
+# ---------------- FAKE REVIEW DETECTION DASHBOARD ----------------
+st.divider()
+st.subheader("🚨 Fake / Misleading Review Detection")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.write("### Mismatch Levels")
+    st.bar_chart(filtered_df['mismatch_level'].value_counts())
+
+with col2:
+    st.write("### Suspicion Score Distribution")
+    st.bar_chart(filtered_df['suspicion_score'].value_counts())
+
+# ---------------- RELIABILITY MESSAGE ----------------
+high_suspicion_ratio = (filtered_df['suspicion_score'] >= 2).mean()
+
+if high_suspicion_ratio > 0.25:
+    st.error("🚨 High number of potentially fake or misleading reviews detected.")
+elif high_suspicion_ratio > 0.1:
+    st.warning("⚠️ Some suspicious review patterns detected.")
+else:
+    st.success("✅ Reviews appear mostly reliable.")
+
+# ---------------- SUSPICIOUS REVIEWS ----------------
+st.subheader("🕵️ Suspicious Reviews")
+
+suspicious_reviews = filtered_df[
+    filtered_df['suspicion_score'] >= 2
+].sort_values(by='suspicion_score', ascending=False)
+
+num_suspicious = st.slider("Number of suspicious reviews to show", 5, 20, 10)
+
+for _, row in suspicious_reviews.head(num_suspicious).iterrows():
+    st.markdown(f"""
+    **📦 Product:** {row['product']}  
+    ⭐ Rating: {row['rating']} | 😡 Sentiment: {row['sentiment']}  
+    ⚠️ Mismatch: {row['mismatch_level']} | 🔍 Score: {row['suspicion_score']}  
+    📝 Review: {row['clean_review']}
+    """)
+    st.markdown("---")
 
 st.divider()
 
